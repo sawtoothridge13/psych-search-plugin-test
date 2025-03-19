@@ -1,5 +1,5 @@
 <?php
-namespace WPPsychSearch\Geocoding;
+namespace WPPsychSearch\Core\Geocoding;
 
 use OpenCage\Geocoder\Geocoder;
 
