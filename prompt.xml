@@ -1,0 +1,1153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+      <metadata>
+        <name>WP Psych Search</name>
+        <description>Wordpress plugin for a searchable directory of psychotherapists with advanced geolocation and filtering capabilities, specifically tailored for the German market.</description>
+        <version>1.0.0</version>
+        <author>Twinpictures</author>
+        <author_uri>https://twinpictures.de</author_uri>
+    </metadata>
+
+<plugin_creation_prompt>
+    <architecture>
+        <coreComponents>
+            <wordpressIntegration>
+                <pluginRequirements>
+                    <wordpressVersion>5.8+</wordpressVersion>
+                    <phpVersion>7.4+</phpVersion>
+                    <mysqlVersion>5.7+ or MariaDB 10.3+</mysqlVersion>
+                    <requiredPHPExtensions>mysqli/pdo_mysql, json, curl</requiredPHPExtensions>
+                </pluginRequirements>
+            </wordpressIntegration>
+            <databaseLayer>
+                <customGeoLocationTable>
+                    <sql>
+                        <![CDATA[
+                        CREATE TABLE `wp_psych_geo` (
+                            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                            `post_id` bigint(20) unsigned NOT NULL,
+                            `address` text NOT NULL,
+                            `lat` decimal(10,8) NOT NULL,
+                            `lng` decimal(11,8) NOT NULL,
+                            `geometry` geometry NOT NULL,
+                            `filter_data` JSON DEFAULT NULL,
+                            `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            PRIMARY KEY (`id`),
+                            KEY `post_id` (`post_id`),
+                            SPATIAL KEY `geometry` (`geometry`),
+                            CONSTRAINT `fk_post` FOREIGN KEY (`post_id`) REFERENCES `wp_posts` (`ID`) ON DELETE CASCADE
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                        ]]>
+                    </sql>
+                </customGeoLocationTable>
+                <metaFieldsStructure>
+                    <personalDetails>
+                        <name>Name</name>
+                        <degree>Degree</degree>
+                        <title>Title</title>
+                        <gender>Gender with filter_type => 'and'/'or' options</gender>
+                    </personalDetails>
+                    <contactInformation>
+                        <phone>Phone</phone>
+                        <email>Email</email>
+                        <website>Website</website>
+                    </contactInformation>
+                    <addressInformation>
+                        <street>Street</street>
+                        <postalCode>Postal Code</postalCode>
+                        <city>City</city>
+                        <state>State</state>
+                    </addressInformation>
+                    <additionalAttributes>
+                        <languages>Languages</languages>
+                        <specialties>Specialties</specialties>
+                        <methods>Methods</methods>
+                        <supportForOtherOptions>Support for "Other" options</supportForOtherOptions>
+                        <configurableFilterTypes>Configurable filter types (AND/OR logic)</configurableFilterTypes>
+                        <shrinkableValues>Shrinkable values for efficient filtering</shrinkableValues>
+                    </additionalAttributes>
+                </metaFieldsStructure>
+            </databaseLayer>
+            <geocodingIntegration>
+                <openCageDataAPI>
+                    <addressValidation>Handles address validation and coordinate conversion</addressValidation>
+                    <supportsGermanAddresses>Supports German addresses and localization (de-DE)</supportsGermanAddresses>
+                    <rateLimiting>Implements rate limiting and error handling</rateLimiting>
+                    <structuredAddressComponents>Provides structured address components</structuredAddressComponents>
+                    <countryCodeFiltering>Country code filtering (de)</countryCodeFiltering>
+                    <specialCases>Handles pedestrian zones and special cases</specialCases>
+                </openCageDataAPI>
+            </geocodingIntegration>
+            <frontendComponents>
+                <searchInterface>
+                    <shortcodeImplementations>
+                        <fullInterface>[psych_search] - Full interface</fullInterface>
+                        <searchBarAndFilters>[psych_search_filters] - Search bar and filters</searchBarAndFilters>
+                        <resultsContainer>[psych_search_cards] - Results container</resultsContainer>
+                        <sortableTable>[psych_search_table] - Sortable table</sortableTable>
+                        <detailsContainer>[psych_details] - Details container</detailsContainer>
+                    </shortcodeImplementations>
+                    <ajaxBasedAddressFiltering>AJAX-based address filtering with jQuery UI autocomplete</ajaxBasedAddressFiltering>
+                    <clientSideAttributeFiltering>Client-side attribute filtering</clientSideAttributeFiltering>
+                    <pagination>Pagination (10 results per page)</pagination>
+                    <maximumResultsLimit>Maximum 50 results limit</maximumResultsLimit>
+                </searchInterface>
+                <displayComponents>
+                    <cardAndTableViewOptions>Card and table view options</cardAndTableViewOptions>
+                    <dynamicContentLoading>Dynamic content loading</dynamicContentLoading>
+                    <contactDetailProtection>Contact detail protection (single-record visibility)</contactDetailProtection>
+                    <responsiveDesign>Mobile-first responsive design using BEM methodology</responsiveDesign>
+                    <criticalCSS>Critical CSS inlined in head</criticalCSS>
+                </displayComponents>
+            </frontendComponents>
+            <backendManagement>
+                <adminInterface>
+                    <psychotherapistManagementSection>Psychotherapist management section</psychotherapistManagementSection>
+                    <settingsConfigurationPage>Settings configuration page with real-time validation</settingsConfigurationPage>
+                    <csvExportFunctionality>CSV export functionality with all meta-data</csvExportFunctionality>
+                    <bulkOperationsSupport>Bulk operations support</bulkOperationsSupport>
+                    <apiKeyManagement>API key management and testing</apiKeyManagement>
+                </adminInterface>
+            </backendManagement>
+            <restAPIEndpoints>
+                <searchEndpoint>
+                    <php>
+                        <![CDATA[
+                        'psych-search/v1/search' => [
+                            'methods' => 'GET',
+                            'args' => [
+                                'lat' => ['required' => true],
+                                'lng' => ['required' => true],
+                                'radius' => ['default' => 50],
+                                'page' => ['default' => 1],
+                                'per_page' => ['default' => 10]
+                            ]
+                        ]
+                        ]]>
+                    </php>
+                </searchEndpoint>
+                <detailsEndpoint>
+                    <php>
+                        <![CDATA[
+                        'psych-search/v1/details/(?P<id>\\d+)' => [
+                            'methods' => 'GET',
+                            'args' => ['id' => ['required' => true]]
+                        ]
+                        ]]>
+                    </php>
+                </detailsEndpoint>
+            </restAPIEndpoints>
+        </coreComponents>
+        <systemFlow>
+            <dataEntryProcess>Address Input -> Geocoding -> Validation -> Storage -> Meta Update</dataEntryProcess>
+            <searchProcess>User Query -> Address Filter (AJAX) -> Attribute Filter (Client) -> Display Results</searchProcess>
+            <adminOperations>Management -> Validation -> Database Update -> Cache Refresh</adminOperations>
+        </systemFlow>
+        <integrationPoints>
+            <wordpressCore>
+                <customPostTypeRegistration>Custom post type registration</customPostTypeRegistration>
+                <metaBoxIntegration>Meta box integration (MetaBox.io framework)</metaBoxIntegration>
+                <restAPIEndpoints>REST API endpoints</restAPIEndpoints>
+                <adminMenuExtensions>Admin menu extensions</adminMenuExtensions>
+                <translationFunctions>Translation functions (i18n)</translationFunctions>
+            </wordpressCore>
+            <externalServices>
+                <openCageDataAPI>OpenCage Data API</openCageDataAPI>
+                <mediaHandlingPlugins>Media handling plugins</mediaHandlingPlugins>
+                <cachingSystems>Caching systems</cachingSystems>
+                <monitoringServices>Monitoring services</monitoringServices>
+            </externalServices>
+        </integrationPoints>
+        <performanceConsiderations>
+            <cachingStrategy>
+                <wordpressTransients>WordPress transients for API responses</wordpressTransients>
+                <browserStorage>Browser storage for user preferences</browserStorage>
+                <objectCaching>Object caching for frequent queries</objectCaching>
+                <serviceWorker>Service worker for static assets</serviceWorker>
+                <configurableCacheDurations>Configurable cache durations</configurableCacheDurations>
+            </cachingStrategy>
+            <queryOptimization>
+                <spatialIndexes>Spatial indexes for location queries</spatialIndexes>
+                <preparedStatements>Prepared statements for security</preparedStatements>
+                <resultLimiting>Result limiting (50 max) and pagination (10 per page)</resultLimiting>
+                <efficientFilteringAlgorithms>Efficient filtering algorithms</efficientFilteringAlgorithms>
+                <stDistanceSphere>ST_Distance_Sphere for distance calculations</stDistanceSphere>
+            </queryOptimization>
+        </performanceConsiderations>
+        <securityMeasures>
+            <dataProtection>
+                <inputSanitization>Input sanitization and validation</inputSanitization>
+                <apiKeyManagement>API key management and encryption</apiKeyManagement>
+                <rateLimiting>Rate limiting implementation</rateLimiting>
+                <gdprCompliance>GDPR compliance for contact information</gdprCompliance>
+                <secureFileServing>Secure file serving</secureFileServing>
+            </dataProtection>
+            <accessControl>
+                <roleBasedPermissions>Role-based permissions</roleBasedPermissions>
+                <nonceVerification>Nonce verification</nonceVerification>
+                <apiAuthentication>API authentication</apiAuthentication>
+                <sessionManagement>Session management</sessionManagement>
+                <capabilityBasedAdminAccess>Capability-based admin access</capabilityBasedAdminAccess>
+            </accessControl>
+        </securityMeasures>
+        <developmentGuidelines>
+            <codeOrganization>
+                <model>Data structure and validation</model>
+                <view>Template and presentation logic</view>
+                <controller>Business logic and request handling</controller>
+                <assetManagement>Webpack bundling and optimization</assetManagement>
+            </codeOrganization>
+            <testingRequirements>
+                <unitTests>Unit tests (PHPUnit for PHP, Jest for JavaScript)</unitTests>
+                <integrationTests>Integration tests for WordPress compatibility</integrationTests>
+                <endToEndTests>End-to-end tests (Cypress)</endToEndTests>
+                <performanceBenchmarking>Performance benchmarking</performanceBenchmarking>
+                <crossBrowserCompatibility>Cross-browser compatibility</crossBrowserCompatibility>
+            </testingRequirements>
+            <documentation>
+                <inlineCodeDocumentation>Inline code documentation (PHPDoc, JSDoc)</inlineCodeDocumentation>
+                <apiDocumentation>API documentation</apiDocumentation>
+                <userGuides>User guides</userGuides>
+                <deploymentProcedures>Deployment procedures</deploymentProcedures>
+                <changelogMaintenance>Changelog maintenance</changelogMaintenance>
+            </documentation>
+        </developmentGuidelines>
+        <futureConsiderations>
+            <searchEnhancement>
+                <naturalLanguageProcessing>Natural language processing integration</naturalLanguageProcessing>
+                <semanticSearchCapabilities>Semantic search capabilities</semanticSearchCapabilities>
+                <advancedFilteringOptions>Advanced filtering options</advancedFilteringOptions>
+                <realTimeSearchSuggestions>Real-time search suggestions</realTimeSearchSuggestions>
+                <vectorDatabaseIntegration>Vector database integration for semantic search</vectorDatabaseIntegration>
+            </searchEnhancement>
+            <scalability>
+                <elasticsearchIntegration>Elasticsearch integration</elasticsearchIntegration>
+                <redisCaching>Redis caching</redisCaching>
+                <loadBalancing>Load balancing</loadBalancing>
+                <horizontalScaling>Horizontal scaling</horizontalScaling>
+                <alternativeDataStorage>Alternative data storage solutions</alternativeDataStorage>
+            </scalability>
+            <featureExtensions>
+                <multiplePracticeLocations>Multiple practice locations</multiplePracticeLocations>
+                <advancedBookingSystem>Advanced booking system</advancedBookingSystem>
+                <reviewManagement>Review management</reviewManagement>
+                <analyticsIntegration>Analytics integration</analyticsIntegration>
+                <enhancedJSONStorage>Enhanced JSON storage for filterable data</enhancedJSONStorage>
+            </featureExtensions>
+        </futureConsiderations>
+    </architecture>
+    <bestPractices>
+        <generalInteractionGuidelines>
+            <understandingTheProject>
+                <familiarizeWithProject>Familiarize yourself with the project's structure and key components by reviewing the README.md and other documentation files.</familiarizeWithProject>
+                <identifyCoreFunctionalities>Identify core functionalities and any specific requirements outlined in the project documentation.</identifyCoreFunctionalities>
+            </understandingTheProject>
+            <codeNavigation>
+                <useSemanticSearch>Use semantic search and symbol search to quickly locate relevant code sections and understand their context.</useSemanticSearch>
+                <leverageFileAndDirectoryListing>Leverage file and directory listing tools to explore the project's file structure efficiently.</leverageFileAndDirectoryListing>
+            </codeNavigation>
+            <codeEditing>
+                <followCodingStandards>Follow the project's coding standards and style guides when making code changes.</followCodingStandards>
+                <ensureWellDocumentedEdits>Ensure that any code edits are well-documented and maintain the integrity of the existing codebase.</ensureWellDocumentedEdits>
+                <useEditTools>Use the edit tools to propose changes and verify them before applying.</useEditTools>
+            </codeEditing>
+            <debuggingAndTesting>
+                <addDescriptiveLogging>Add descriptive logging and error messages to help track down issues.</addDescriptiveLogging>
+                <writeAndRunTests>Write and run tests to verify the functionality of code changes.</writeAndRunTests>
+                <useDebuggingTools>Use debugging tools to isolate and resolve issues effectively.</useDebuggingTools>
+            </debuggingAndTesting>
+            <securityAndPerformance>
+                <beMindfulOfSecurity>Be mindful of security best practices, such as input validation and access control.</beMindfulOfSecurity>
+                <optimizeCodeForPerformance>Optimize code for performance, especially in areas related to database queries and file operations.</optimizeCodeForPerformance>
+            </securityAndPerformance>
+            <documentationAndCommunication>
+                <updateDocumentation>Update documentation to reflect any changes made to the codebase.</updateDocumentation>
+                <communicateClearly>Communicate clearly with the user about the changes being made and any potential impacts.</communicateClearly>
+            </documentationAndCommunication>
+        </generalInteractionGuidelines>
+        <specificConsiderationsForPsychSearchPlugin>
+            <wordpressIntegration>
+                <ensureCompatibility>Ensure compatibility with WordPress standards and popular plugins.</ensureCompatibility>
+                <useHooksAndFilters>Use WordPress hooks and filters to extend functionality without altering core files.</useHooksAndFilters>
+            </wordpressIntegration>
+            <geolocationFeatures>
+                <handleGeolocationData>Handle geolocation data accurately and efficiently.</handleGeolocationData>
+                <provideClearInterfaces>Provide clear interfaces for geolocation-based searches and ensure data integrity.</provideClearInterfaces>
+            </geolocationFeatures>
+            <futureEnhancements>
+                <planForEnhancements>Plan for potential enhancements like fuzzy search and alternative data storage solutions.</planForEnhancements>
+                <keepScalabilityInMind>Keep scalability and maintainability in mind when proposing new features.</keepScalabilityInMind>
+            </futureEnhancements>
+        </specificConsiderationsForPsychSearchPlugin>
+    </bestPractices>
+    <objectives>
+        <primaryGoal>To develop a high-performance, secure WordPress plugin that creates a searchable directory of psychotherapists with advanced geolocation and filtering capabilities, specifically tailored for the German market.</primaryGoal>
+        <coreObjectives>
+            <dataManagement>
+                <createRobustSystem>Create a robust system for managing psychotherapist information through custom post type implementation, comprehensive meta fields using MetaBox.io framework, secure storage of sensitive contact information, efficient handling of geolocation data, and support for multiple languages and specialties.</createRobustSystem>
+            </dataManagement>
+            <searchAndDiscovery>
+                <implementIntuitiveSearchSystem>Implement an intuitive search system that provides accurate geolocation-based search within specified radius, dual filtering mechanism (AJAX for location, client-side for attributes), maximum result limit of 50 closest psychotherapists, pagination with 10 results per page, and protection against data scraping.</implementIntuitiveSearchSystem>
+            </searchAndDiscovery>
+            <userExperience>
+                <deliverOptimalUserExperience>Deliver an optimal user experience through multiple view options (cards and tables), progressive loading of contact details, mobile-first responsive design, clear and intuitive filtering interface, and fast and responsive search results.</deliverOptimalUserExperience>
+            </userExperience>
+            <performanceOptimization>
+                <ensureHighPerformance>Ensure high performance through efficient database queries using spatial indexes, strategic caching implementation, client-side filtering for non-location attributes, optimized asset loading and bundling, and lazy loading of detailed information.</ensureHighPerformance>
+            </performanceOptimization>
+            <securityAndCompliance>
+                <maintainRobustSecurityMeasures>Maintain robust security measures including GDPR compliance for personal data, secure API key management, role-based access control, input validation and sanitization, and protection against unauthorized access.</maintainRobustSecurityMeasures>
+            </securityAndCompliance>
+            <administration>
+                <provideComprehensiveAdminFeatures>Provide comprehensive admin features including intuitive psychotherapist management interface, bulk operations support, CSV export functionality, real-time settings validation, and API usage monitoring.</provideComprehensiveAdminFeatures>
+            </administration>
+        </coreObjectives>
+        <technicalObjectives>
+            <databaseArchitecture>
+                <implementEfficientDataStorage>Implement efficient data storage through custom geo-location table with spatial capabilities, optimized meta field structure, JSON storage for filterable attributes, and foreign key relationships for data integrity.</implementEfficientDataStorage>
+            </databaseArchitecture>
+            <apiIntegration>
+                <successfullyIntegrateWithExternalServices>Successfully integrate with external services such as OpenCage Data API for geocoding, WordPress REST API endpoints, support for media handling plugins, and monitoring service integration.</successfullyIntegrateWithExternalServices>
+            </apiIntegration>
+            <frontendDevelopment>
+                <createModernFrontendImplementation>Create a modern frontend implementation with BEM methodology for CSS architecture, Webpack for asset bundling, critical CSS optimization, progressive enhancement, and cross-browser compatibility.</createModernFrontendImplementation>
+            </frontendDevelopment>
+            <testingAndQualityAssurance>
+                <ensureCodeQuality>Ensure code quality through comprehensive unit testing, integration testing with WordPress, end-to-end testing with Cypress, performance benchmarking, and cross-browser testing.</ensureCodeQuality>
+            </testingAndQualityAssurance>
+        </technicalObjectives>
+        <futureObjectives>
+            <enhancedSearchCapabilities>
+                <planForAdvancedSearchFeatures>Plan for advanced search features such as natural language processing integration, semantic search implementation, real-time search suggestions, and vector database integration.</planForAdvancedSearchFeatures>
+            </enhancedSearchCapabilities>
+            <scalabilityImprovements>
+                <prepareForGrowth>Prepare for growth through Elasticsearch integration capability, Redis caching implementation, load balancing support, and alternative storage solutions.</prepareForGrowth>
+            </scalabilityImprovements>
+            <featureExpansion>
+                <considerAdditionalFeatures>Consider additional features such as multiple practice locations support, advanced booking system, review management, analytics integration, and enhanced filtering capabilities.</considerAdditionalFeatures>
+            </featureExpansion>
+        </futureObjectives>
+        <successMetrics>
+            <fastSearchResponseTimes>Fast search response times (under 500ms)</fastSearchResponseTimes>
+            <accurateGeolocationResults>Accurate geolocation results</accurateGeolocationResults>
+            <highUserEngagement>High user engagement</highUserEngagement>
+            <minimalServerLoad>Minimal server load</minimalServerLoad>
+            <gdprCompliance>GDPR compliance</gdprCompliance>
+            <positiveUserFeedback>Positive user feedback</positiveUserFeedback>
+            <easyMaintenanceAndUpdates>Easy maintenance and updates</easyMaintenanceAndUpdates>
+        </successMetrics>
+        <openConsiderations>
+            <implementationApproachForMultiplePracticeLocations>Implementation approach for multiple practice locations</implementationApproachForMultiplePracticeLocations>
+            <handlingOfLocationSpecificInformation>Handling of location-specific information</handlingOfLocationSpecificInformation>
+            <optimizationOfDataStructureForScalability>Optimization of data structure for scalability</optimizationOfDataStructureForScalability>
+            <balanceBetweenFeatureRichnessAndPerformance>Balance between feature richness and performance</balanceBetweenFeatureRichnessAndPerformance>
+        </openConsiderations>
+        <suggestedImprovements>
+            <performanceMetricsSpecification>
+                <defineSpecificPerformanceTargets>Define specific performance targets such as maximum server response time for search queries, database query execution time limits, maximum acceptable server load under peak usage, asset loading and rendering time targets, and API response time thresholds.</defineSpecificPerformanceTargets>
+            </performanceMetricsSpecification>
+            <successMetricsEnhancement>
+                <addQuantifiableMeasures>Add quantifiable measures such as user engagement metrics (session duration, return visits), search accuracy rates, system uptime targets, error rate thresholds, and user satisfaction scores.</addQuantifiableMeasures>
+            </successMetricsEnhancement>
+            <localizationObjectives>
+                <expandGermanMarketFocus>Expand German market focus through language-specific search optimization, regional compliance requirements, local SEO considerations, cultural UX adaptations, and region-specific feature requirements.</expandGermanMarketFocus>
+            </localizationObjectives>
+            <wordpressCompatibility>
+                <defineVersionSupportMatrix>Define version support matrix such as minimum supported WordPress version (5.8+), forward compatibility testing requirements, plugin compatibility requirements, theme compatibility guidelines, and update management strategy.</defineVersionSupportMatrix>
+            </wordpressCompatibility>
+        </suggestedImprovements>
+    </objectives>
+    <requirements>
+        <systemRequirements>
+            <wordpressEnvironment>
+                <wordpressVersion>5.8+</wordpressVersion>
+                <phpVersion>7.4+</phpVersion>
+                <mysqlVersion>5.7+ or MariaDB 10.3+</mysqlVersion>
+                <requiredPHPExtensions>mysqli or pdo_mysql, json, curl</requiredPHPExtensions>
+            </wordpressEnvironment>
+            <databaseRequirements>
+                <innodbEngineSupport>InnoDB engine support</innodbEngineSupport>
+                <utf8mb4CharacterSet>UTF8MB4 character set and collation</utf8mb4CharacterSet>
+                <spatialDataTypeSupport>Spatial data type support</spatialDataTypeSupport>
+                <jsonColumnTypeSupport>JSON column type support</jsonColumnTypeSupport>
+                <foreignKeyConstraintCapability>Foreign key constraint capability</foreignKeyConstraintCapability>
+            </databaseRequirements>
+        </systemRequirements>
+        <functionalRequirements>
+            <customPostTypeManagement>
+                <postTypeRegistration>
+                    <php>
+                        <![CDATA[
+                        // Required post type features
+                        'supports' => ['title']
+                        'public' => true
+                        'show_in_rest' => true
+                        ]]>
+                    </php>
+                </postTypeRegistration>
+                <metaFieldsImplementation>
+                    <personalDetails>Personal details (required)</personalDetails>
+                    <contactInformation>Contact information (required)</contactInformation>
+                    <addressInformation>Address information (required)</addressInformation>
+                    <additionalAttributes>Additional attributes (optional)</additionalAttributes>
+                </metaFieldsImplementation>
+            </customPostTypeManagement>
+            <geolocationFeatures>
+                <addressValidation>
+                    <realTimeGeocoding>Real-time geocoding</realTimeGeocoding>
+                    <germanAddressFormatSupport>German address format support</germanAddressFormatSupport>
+                    <structuredAddressComponents>Structured address components</structuredAddressComponents>
+                    <errorHandlingForInvalidAddresses>Error handling for invalid addresses</errorHandlingForInvalidAddresses>
+                </addressValidation>
+                <spatialDataStorage>
+                    <latitudeLongitudeCoordinates>Latitude/longitude coordinates</latitudeLongitudeCoordinates>
+                    <geometryPointData>Geometry point data</geometryPointData>
+                    <distanceCalculationCapability>Distance calculation capability</distanceCalculationCapability>
+                    <spatialIndexing>Spatial indexing</spatialIndexing>
+                </spatialDataStorage>
+            </geolocationFeatures>
+            <searchFunctionality>
+                <locationBasedSearch>
+                    <maximumRadius>Maximum radius: 50km (configurable)</maximumRadius>
+                    <resultsLimit>Results limit: 50 entries</resultsLimit>
+                    <distanceBasedSorting>Distance-based sorting</distanceBasedSorting>
+                    <coordinateValidation>Coordinate validation</coordinateValidation>
+                </locationBasedSearch>
+                <attributeFiltering>
+                    <andOrLogicSupport>AND/OR logic support</andOrLogicSupport>
+                    <multipleFilterCombinations>Multiple filter combinations</multipleFilterCombinations>
+                    <clientSideProcessing>Client-side processing</clientSideProcessing>
+                    <realTimeUpdates>Real-time updates</realTimeUpdates>
+                </attributeFiltering>
+            </searchFunctionality>
+            <userInterface>
+                <frontendComponents>
+                    <responsiveDesign>Responsive design (mobile-first)</responsiveDesign>
+                    <multipleViewOptions>Multiple view options</multipleViewOptions>
+                    <progressiveLoading>Progressive loading</progressiveLoading>
+                    <accessibilityCompliance>Accessibility compliance</accessibilityCompliance>
+                </frontendComponents>
+                <searchInterface>
+                    <addressAutocomplete>Address autocomplete</addressAutocomplete>
+                    <filterControls>Filter controls</filterControls>
+                    <resultsDisplay>Results display</resultsDisplay>
+                    <pagination>Pagination (10 per page)</pagination>
+                </searchInterface>
+            </userInterface>
+        </functionalRequirements>
+        <technicalRequirements>
+            <apiImplementation>
+                <restAPIEndpoints>
+                    <php>
+                        <![CDATA[
+                        // Required endpoints
+                        'psych-search/v1/search'
+                        'psych-search/v1/details/{id}'
+                        ]]>
+                    </php>
+                </restAPIEndpoints>
+                <openCageDataIntegration>
+                    <apiKeyManagement>API key management</apiKeyManagement>
+                    <rateLimiting>Rate limiting</rateLimiting>
+                    <errorHandling>Error handling</errorHandling>
+                    <responseCaching>Response caching</responseCaching>
+                </openCageDataIntegration>
+            </apiImplementation>
+            <securityRequirements>
+                <dataProtection>
+                    <gdprCompliance>GDPR compliance</gdprCompliance>
+                    <inputSanitization>Input sanitization</inputSanitization>
+                    <xssPrevention>XSS prevention</xssPrevention>
+                    <sqlInjectionProtection>SQL injection protection</sqlInjectionProtection>
+                </dataProtection>
+                <accessControl>
+                    <roleBasedPermissions>Role-based permissions</roleBasedPermissions>
+                    <nonceVerification>Nonce verification</nonceVerification>
+                    <apiAuthentication>API authentication</apiAuthentication>
+                    <rateLimiting>Rate limiting</rateLimiting>
+                </accessControl>
+            </securityRequirements>
+            <performanceRequirements>
+                <responseTimes>
+                    <searchQueries>Search queries: < 500ms</searchQueries>
+                    <pageLoad>Page load: < 2s</pageLoad>
+                    <apiCalls>API calls: < 1s</apiCalls>
+                    <databaseQueries>Database queries: < 100ms</databaseQueries>
+                </responseTimes>
+                <caching>
+                    <wordpressTransients>WordPress transients</wordpressTransients>
+                    <browserStorage>Browser storage</browserStorage>
+                    <objectCaching>Object caching</objectCaching>
+                    <apiResponseCaching>API response caching</apiResponseCaching>
+                </caching>
+            </performanceRequirements>
+            <codeQualityRequirements>
+                <testingCoverage>
+                    <unitTests>Unit tests: > 80%</unitTests>
+                    <integrationTests>Integration tests: > 70%</integrationTests>
+                    <endToEndTests>End-to-end tests: Key user flows</endToEndTests>
+                    <performanceTests>Performance tests: Load and stress</performanceTests>
+                </testingCoverage>
+                <documentation>
+                    <phpDocComments>PHPDoc comments</phpDocComments>
+                    <jsDocComments>JSDoc comments</jsDocComments>
+                    <readmeFiles>README files</readmeFiles>
+                    <apiDocumentation>API documentation</apiDocumentation>
+                </documentation>
+            </codeQualityRequirements>
+        </technicalRequirements>
+        <developmentRequirements>
+            <buildProcess>
+                <assetCompilation>
+                    <webpackConfiguration>Webpack configuration</webpackConfiguration>
+                    <sassCompilation>SASS compilation</sassCompilation>
+                    <javascriptBundling>JavaScript bundling</javascriptBundling>
+                    <assetOptimization>Asset optimization</assetOptimization>
+                </assetCompilation>
+                <versionControl>
+                    <semanticVersioning>Semantic versioning</semanticVersioning>
+                    <changelogMaintenance>Changelog maintenance</changelogMaintenance>
+                    <branchStrategy>Branch strategy</branchStrategy>
+                    <codeReviewProcess>Code review process</codeReviewProcess>
+                </versionControl>
+            </buildProcess>
+            <codingStandards>
+                <phpStandards>
+                    <psr12Compliance>PSR-12 compliance</psr12Compliance>
+                    <wordpressCodingStandards>WordPress coding standards</wordpressCodingStandards>
+                    <typeHinting>Type hinting (PHP 7.4+)</typeHinting>
+                    <errorHandling>Error handling</errorHandling>
+                </phpStandards>
+                <javascriptStandards>
+                    <eslintConfiguration>ESLint configuration</eslintConfiguration>
+                    <modernES6Syntax>Modern ES6+ syntax</modernES6Syntax>
+                    <modulePattern>Module pattern</modulePattern>
+                    <errorHandling>Error handling</errorHandling>
+                </javascriptStandards>
+            </codingStandards>
+            <cssArchitecture>
+                <methodology>
+                    <bemNamingConvention>BEM naming convention</bemNamingConvention>
+                    <mobileFirstApproach>Mobile-first approach</mobileFirstApproach>
+                    <criticalCSS>Critical CSS</criticalCSS>
+                    <progressiveEnhancement>Progressive enhancement</progressiveEnhancement>
+                </methodology>
+            </cssArchitecture>
+        </developmentRequirements>
+        <integrationRequirements>
+            <wordpressCore>
+                <hookIntegration>
+                    <actionHooks>Action hooks</actionHooks>
+                    <filterHooks>Filter hooks</filterHooks>
+                    <adminHooks>Admin hooks</adminHooks>
+                    <restAPIHooks>REST API hooks</restAPIHooks>
+                </hookIntegration>
+            </wordpressCore>
+            <pluginCompatibility>
+                <requiredPlugins>
+                    <metaBoxIo>MetaBox.io</metaBoxIo>
+                    <compatibleMediaHandlers>Compatible media handlers</compatibleMediaHandlers>
+                    <cachingPlugins>Caching plugins</cachingPlugins>
+                    <securityPlugins>Security plugins</securityPlugins>
+                </requiredPlugins>
+            </pluginCompatibility>
+        </integrationRequirements>
+        <maintenanceRequirements>
+            <errorHandling>
+                <logging>
+                    <errorLogging>Error logging</errorLogging>
+                    <debugLogging>Debug logging</debugLogging>
+                    <performanceLogging>Performance logging</performanceLogging>
+                    <securityLogging>Security logging</securityLogging>
+                </logging>
+            </errorHandling>
+            <monitoring>
+                <systemHealth>
+                    <apiUsageTracking>API usage tracking</apiUsageTracking>
+                    <performanceMonitoring>Performance monitoring</performanceMonitoring>
+                    <errorTracking>Error tracking</errorTracking>
+                    <usageStatistics>Usage statistics</usageStatistics>
+                </systemHealth>
+            </monitoring>
+        </maintenanceRequirements>
+        <aiAgentSpecificRequirements>
+            <codeNavigation>
+                <useSemanticSearch>Use semantic search for locating relevant code sections</useSemanticSearch>
+                <understandFileStructure>Understand file structure and relationships</understandFileStructure>
+                <trackDependencies>Track dependencies and integrations</trackDependencies>
+                <monitorCodeChanges>Monitor code changes and impacts</monitorCodeChanges>
+            </codeNavigation>
+            <codeModification>
+                <followEstablishedPatterns>Follow established patterns</followEstablishedPatterns>
+                <maintainExistingArchitecture>Maintain existing architecture</maintainExistingArchitecture>
+                <documentChangesComprehensively>Document changes comprehensively</documentChangesComprehensively>
+                <verifyChangesMeetRequirements>Verify changes meet requirements</verifyChangesMeetRequirements>
+            </codeModification>
+            <testingVerification>
+                <runAppropriateTestSuites>Run appropriate test suites</runAppropriateTestSuites>
+                <validateFunctionality>Validate functionality</validateFunctionality>
+                <checkPerformanceImpacts>Check performance impacts</checkPerformanceImpacts>
+                <ensureSecurityCompliance>Ensure security compliance</ensureSecurityCompliance>
+            </testingVerification>
+            <documentationUpdates>
+                <keepDocumentationCurrent>Keep documentation current</keepDocumentationCurrent>
+                <followDocumentationStandards>Follow documentation standards</followDocumentationStandards>
+                <updateRelevantSections>Update relevant sections</updateRelevantSections>
+                <maintainConsistency>Maintain consistency</maintainConsistency>
+            </documentationUpdates>
+        </aiAgentSpecificRequirements>
+        <possibleEnhancementsToRequirements>
+            <additionalCodeExamples>
+                <databaseQueryPatterns>Database query patterns</databaseQueryPatterns>
+                <wordpressHookImplementations>WordPress hook implementations</wordpressHookImplementations>
+                <javascriptModuleStructures>JavaScript module structures</javascriptModuleStructures>
+                <cssSassOrganizationExamples>CSS/SASS organization examples</cssSassOrganizationExamples>
+            </additionalCodeExamples>
+            <detailedPerformanceMetrics>
+                <memoryUsageLimits>Memory usage limits</memoryUsageLimits>
+                <cpuUtilizationThresholds>CPU utilization thresholds</cpuUtilizationThresholds>
+                <networkBandwidthRequirements>Network bandwidth requirements</networkBandwidthRequirements>
+                <cacheHitRatioTargets>Cache hit ratio targets</cacheHitRatioTargets>
+                <concurrentUserCapacity>Concurrent user capacity</concurrentUserCapacity>
+            </detailedPerformanceMetrics>
+            <extendedAIAgentGuidelines>
+                <codeReviewChecklist>Code review checklist</codeReviewChecklist>
+                <refactoringStrategies>Refactoring strategies</refactoringStrategies>
+                <performanceOptimizationPatterns>Performance optimization patterns</performanceOptimizationPatterns>
+                <securityAuditProcedures>Security audit procedures</securityAuditProcedures>
+                <documentationTemplates>Documentation templates</documentationTemplates>
+            </extendedAIAgentGuidelines>
+            <sectionExpansions>
+                <detailedWordpressIntegrationPatterns>Detailed WordPress integration patterns</detailedWordpressIntegrationPatterns>
+                <comprehensiveTestingScenarios>Comprehensive testing scenarios</comprehensiveTestingScenarios>
+                <extendedSecurityProtocols>Extended security protocols</extendedSecurityProtocols>
+                <detailedDeploymentProcedures>Detailed deployment procedures</detailedDeploymentProcedures>
+                <advancedCachingStrategies>Advanced caching strategies</advancedCachingStrategies>
+            </sectionExpansions>
+        </possibleEnhancementsToRequirements>
+    </requirements>
+    <rules>
+        <corePrinciples>
+            <codeIntegrity>
+                <neverModifyCoreFiles>NEVER modify WordPress core files</neverModifyCoreFiles>
+                <alwaysUseHooks>ALWAYS use WordPress hooks and filters for customization</alwaysUseHooks>
+                <maintainExistingArchitecturalPatterns>MAINTAIN existing architectural patterns</maintainExistingArchitecturalPatterns>
+                <preserveDatabaseSchemaIntegrity>PRESERVE database schema integrity</preserveDatabaseSchemaIntegrity>
+            </codeIntegrity>
+            <securityFirst>
+                <neverExposeAPIKeys>NEVER expose API keys in client-side code</neverExposeAPIKeys>
+                <alwaysSanitizeUserInput>ALWAYS sanitize user input</alwaysSanitizeUserInput>
+                <neverStoreSensitiveDataUnencrypted>NEVER store sensitive data unencrypted</neverStoreSensitiveDataUnencrypted>
+                <alwaysValidateData>ALWAYS validate data before processing</alwaysValidateData>
+            </securityFirst>
+            <performanceStandards>
+                <neverExceedResponseTimeLimits>NEVER exceed specified response time limits</neverExceedResponseTimeLimits>
+                <alwaysImplementCaching>ALWAYS implement caching where appropriate</alwaysImplementCaching>
+                <maintainResultLimits>MAINTAIN result limits (50 max records)</maintainResultLimits>
+                <respectRateLimitingRequirements>RESPECT rate limiting requirements</respectRateLimitingRequirements>
+            </performanceStandards>
+            <documentationRequirements>
+                <alwaysUpdateDocumentation>ALWAYS update documentation for code changes</alwaysUpdateDocumentation>
+                <maintainConsistentDocumentationStyle>MAINTAIN consistent documentation style</maintainConsistentDocumentationStyle>
+                <includeExamples>INCLUDE examples for complex functionality</includeExamples>
+                <documentAllAssumptions>DOCUMENT all assumptions made</documentAllAssumptions>
+            </documentationRequirements>
+        </corePrinciples>
+        <implementationRules>
+            <databaseOperations>
+                <do>
+                    <usePreparedStatements>Use prepared statements</usePreparedStatements>
+                    <implementForeignKeyConstraints>Implement foreign key constraints</implementForeignKeyConstraints>
+                    <useSpatialIndexes>Use spatial indexes for geo-queries</useSpatialIndexes>
+                    <cacheFrequentQueries>Cache frequent queries</cacheFrequentQueries>
+                </do>
+                <dont>
+                    <executeRawSQLQueries>Execute raw SQL queries</executeRawSQLQueries>
+                    <modifyCoreWordpressTables>Modify core WordPress tables</modifyCoreWordpressTables>
+                    <storeSensitiveDataInPlainText>Store sensitive data in plain text</storeSensitiveDataInPlainText>
+                    <createUnnecessaryIndexes>Create unnecessary indexes</createUnnecessaryIndexes>
+                </dont>
+            </databaseOperations>
+            <apiIntegration>
+                <do>
+                    <cacheAPIResponses>Cache API responses</cacheAPIResponses>
+                    <handleRateLimiting>Handle rate limiting</handleRateLimiting>
+                    <implementErrorHandling>Implement error handling</implementErrorHandling>
+                    <logAPIInteractions>Log API interactions</logAPIInteractions>
+                </do>
+                <dont>
+                    <exposeAPIKeys>Expose API keys</exposeAPIKeys>
+                    <exceedAPIQuotas>Exceed API quotas</exceedAPIQuotas>
+                    <skipResponseValidation>Skip response validation</skipResponseValidation>
+                    <cacheSensitiveData>Cache sensitive data</cacheSensitiveData>
+                </dont>
+            </apiIntegration>
+            <frontendDevelopment>
+                <do>
+                    <followBEMMethodology>Follow BEM methodology</followBEMMethodology>
+                    <implementProgressiveEnhancement>Implement progressive enhancement</implementProgressiveEnhancement>
+                    <useClientSideFiltering>Use client-side filtering</useClientSideFiltering>
+                    <optimizeAssetLoading>Optimize asset loading</optimizeAssetLoading>
+                </do>
+                <dont>
+                    <blockMainThread>Block main thread</blockMainThread>
+                    <bypassWordpressEnqueue>Bypass WordPress enqueue</bypassWordpressEnqueue>
+                    <implementCustomAJAXHandlers>Implement custom AJAX handlers</implementCustomAJAXHandlers>
+                    <loadUnnecessaryAssets>Load unnecessary assets</loadUnnecessaryAssets>
+                </dont>
+            </frontendDevelopment>
+            <securityImplementation>
+                <do>
+                    <verifyNonces>Verify nonces</verifyNonces>
+                    <validateCapabilities>Validate capabilities</validateCapabilities>
+                    <sanitizeInputs>Sanitize inputs</sanitizeInputs>
+                    <escapeOutputs>Escape outputs</escapeOutputs>
+                </do>
+                <dont>
+                    <storePasswordsInPlainText>Store passwords in plain text</storePasswordsInPlainText>
+                    <skipInputValidation>Skip input validation</skipInputValidation>
+                    <bypassWordpressSecurity>Bypass WordPress security</bypassWordpressSecurity>
+                    <exposeSensitiveEndpoints>Expose sensitive endpoints</exposeSensitiveEndpoints>
+                </dont>
+            </securityImplementation>
+        </implementationRules>
+        <codeModificationRules>
+            <whenAddingFeatures>
+                <do>
+                    <followExistingPatterns>Follow existing patterns</followExistingPatterns>
+                    <addAppropriateTests>Add appropriate tests</addAppropriateTests>
+                    <updateDocumentation>Update documentation</updateDocumentation>
+                    <considerPerformanceImpact>Consider performance impact</considerPerformanceImpact>
+                </do>
+                <dont>
+                    <breakExistingFunctionality>Break existing functionality</breakExistingFunctionality>
+                    <skipSecurityChecks>Skip security checks</skipSecurityChecks>
+                    <ignoreCodingStandards>Ignore coding standards</ignoreCodingStandards>
+                    <duplicateFunctionality>Duplicate functionality</duplicateFunctionality>
+                </dont>
+            </whenAddingFeatures>
+            <whenFixingBugs>
+                <do>
+                    <documentRootCause>Document root cause</documentRootCause>
+                    <addRegressionTests>Add regression tests</addRegressionTests>
+                    <updateRelatedDocumentation>Update related documentation</updateRelatedDocumentation>
+                    <considerSideEffects>Consider side effects</considerSideEffects>
+                </do>
+                <dont>
+                    <applyQuickFixes>Apply quick fixes</applyQuickFixes>
+                    <skipTesting>Skip testing</skipTesting>
+                    <ignoreEdgeCases>Ignore edge cases</ignoreEdgeCases>
+                    <breakBackwardCompatibility>Break backward compatibility</breakBackwardCompatibility>
+                </dont>
+            </whenFixingBugs>
+        </codeModificationRules>
+        <testingRequirements>
+            <unitTesting>
+                <do>
+                    <maintainCoverage>Maintain >80% coverage</maintainCoverage>
+                    <testEdgeCases>Test edge cases</testEdgeCases>
+                    <mockExternalServices>Mock external services</mockExternalServices>
+                    <documentTestCases>Document test cases</documentTestCases>
+                </do>
+                <dont>
+                    <skipErrorCases>Skip error cases</skipErrorCases>
+                    <useProductionAPIs>Use production APIs</useProductionAPIs>
+                    <writeBrittleTests>Write brittle tests</writeBrittleTests>
+                    <ignoreFailedTests>Ignore failed tests</ignoreFailedTests>
+                </dont>
+            </unitTesting>
+            <integrationTesting>
+                <do>
+                    <testWordpressIntegration>Test WordPress integration</testWordpressIntegration>
+                    <verifyPluginCompatibility>Verify plugin compatibility</verifyPluginCompatibility>
+                    <testDatabaseOperations>Test database operations</testDatabaseOperations>
+                    <checkAPIInteractions>Check API interactions</checkAPIInteractions>
+                </do>
+                <dont>
+                    <skipCleanup>Skip cleanup</skipCleanup>
+                    <useProductionData>Use production data</useProductionData>
+                    <ignoreFailures>Ignore failures</ignoreFailures>
+                    <skipPerformanceTests>Skip performance tests</skipPerformanceTests>
+                </dont>
+            </integrationTesting>
+        </testingRequirements>
+        <performanceRules>
+            <responseTimes>
+                <do>
+                    <monitorQueryTimes>Monitor query times</monitorQueryTimes>
+                    <implementCaching>Implement caching</implementCaching>
+                    <optimizeAssets>Optimize assets</optimizeAssets>
+                    <usePagination>Use pagination</usePagination>
+                </do>
+                <dont>
+                    <exceedTimeLimits>Exceed time limits:
+                        <search>Search: 500ms</search>
+                        <pageLoad>Page Load: 2s</pageLoad>
+                        <apiCalls>API Calls: 1s</apiCalls>
+                        <dbQueries>DB Queries: 100ms</dbQueries>
+                    </exceedTimeLimits>
+                </dont>
+            </responseTimes>
+            <resourceUsage>
+                <do>
+                    <optimizeMemoryUsage>Optimize memory usage</optimizeMemoryUsage>
+                    <implementLazyLoading>Implement lazy loading</implementLazyLoading>
+                    <useAppropriateIndexes>Use appropriate indexes</useAppropriateIndexes>
+                    <monitorAPIUsage>Monitor API usage</monitorAPIUsage>
+                </do>
+                <dont>
+                    <causeMemoryLeaks>Cause memory leaks</causeMemoryLeaks>
+                    <blockTheEventLoop>Block the event loop</blockTheEventLoop>
+                    <overuseExternalAPIs>Overuse external APIs</overuseExternalAPIs>
+                    <skipPerformanceTesting>Skip performance testing</skipPerformanceTesting>
+                </dont>
+            </resourceUsage>
+        </performanceRules>
+        <errorHandlingRules>
+            <logging>
+                <do>
+                    <logMeaningfulErrors>Log meaningful errors</logMeaningfulErrors>
+                    <includeContext>Include context</includeContext>
+                    <useAppropriateLevels>Use appropriate levels</useAppropriateLevels>
+                    <monitorLogs>Monitor logs</monitorLogs>
+                </do>
+                <dont>
+                    <logSensitiveData>Log sensitive data</logSensitiveData>
+                    <ignoreErrors>Ignore errors</ignoreErrors>
+                    <skipValidation>Skip validation</skipValidation>
+                    <leaveDebugLogs>Leave debug logs</leaveDebugLogs>
+                </dont>
+            </logging>
+            <userFeedback>
+                <do>
+                    <provideClearMessages>Provide clear messages</provideClearMessages>
+                    <handleAllErrorStates>Handle all error states</handleAllErrorStates>
+                    <maintainUX>Maintain UX</maintainUX>
+                    <logForDebugging>Log for debugging</logForDebugging>
+                </do>
+                <dont>
+                    <showTechnicalErrors>Show technical errors</showTechnicalErrors>
+                    <skipErrorHandling>Skip error handling</skipErrorHandling>
+                    <breakTheUI>Break the UI</breakTheUI>
+                    <ignoreEdgeCases>Ignore edge cases</ignoreEdgeCases>
+                </dont>
+            </userFeedback>
+        </errorHandlingRules>
+        <maintenanceRules>
+            <codeQuality>
+                <do>
+                    <followPSR12>Follow PSR-12</followPSR12>
+                    <useWordpressStandards>Use WordPress standards</useWordpressStandards>
+                    <implementTypeHints>Implement type hints</implementTypeHints>
+                    <documentComplexLogic>Document complex logic</documentComplexLogic>
+                </do>
+                <dont>
+                    <skipCodeReview>Skip code review</skipCodeReview>
+                    <ignoreLinting>Ignore linting</ignoreLinting>
+                    <leaveTODOComments>Leave TODO comments</leaveTODOComments>
+                    <skipDocumentation>Skip documentation</skipDocumentation>
+                </dont>
+            </codeQuality>
+            <versionControl>
+                <do>
+                    <useSemanticVersioning>Use semantic versioning</useSemanticVersioning>
+                    <writeClearCommits>Write clear commits</writeClearCommits>
+                    <updateChangelog>Update changelog</updateChangelog>
+                    <tagReleases>Tag releases</tagReleases>
+                </do>
+                <dont>
+                    <skipVersionUpdates>Skip version updates</skipVersionUpdates>
+                    <commitBrokenCode>Commit broken code</commitBrokenCode>
+                    <ignoreConflicts>Ignore conflicts</ignoreConflicts>
+                    <skipChangelog>Skip changelog</skipChangelog>
+                </dont>
+            </versionControl>
+        </maintenanceRules>
+        <aiAgentSpecificRules>
+            <codeAnalysis>
+                <do>
+                    <useSemanticSearchEffectively>Use semantic search effectively</useSemanticSearchEffectively>
+                    <understandFullContext>Understand full context</understandFullContext>
+                    <trackDependencies>Track dependencies</trackDependencies>
+                    <verifyAssumptions>Verify assumptions</verifyAssumptions>
+                </do>
+                <dont>
+                    <makeAssumptions>Make assumptions</makeAssumptions>
+                    <skipVerification>Skip verification</skipVerification>
+                    <ignoreContext>Ignore context</ignoreContext>
+                    <bypassTools>Bypass tools</bypassTools>
+                </dont>
+            </codeAnalysis>
+            <codeGeneration>
+                <do>
+                    <followProjectPatterns>Follow project patterns</followProjectPatterns>
+                    <includeAllDependencies>Include all dependencies</includeAllDependencies>
+                    <addDocumentation>Add documentation</addDocumentation>
+                    <verifyFunctionality>Verify functionality</verifyFunctionality>
+                </do>
+                <dont>
+                    <generateIncompleteCode>Generate incomplete code</generateIncompleteCode>
+                    <skipErrorHandling>Skip error handling</skipErrorHandling>
+                    <ignoreStandards>Ignore standards</ignoreStandards>
+                    <leaveTODOs>Leave TODOs</leaveTODOs>
+                </dont>
+            </codeGeneration>
+            <communication>
+                <do>
+                    <provideClearExplanations>Provide clear explanations</provideClearExplanations>
+                    <documentDecisions>Document decisions</documentDecisions>
+                    <askForClarification>Ask for clarification</askForClarification>
+                    <suggestImprovements>Suggest improvements</suggestImprovements>
+                </do>
+                <dont>
+                    <makeAssumptions>Make assumptions</makeAssumptions>
+                    <skipDocumentation>Skip documentation</skipDocumentation>
+                    <hideUncertainties>Hide uncertainties</hideUncertainties>
+                    <ignoreFeedback>Ignore feedback</ignoreFeedback>
+                </dont>
+            </communication>
+        </aiAgentSpecificRules>
+    </rules>
+    <tasks>
+        <phase1>
+            <pluginInfrastructure>
+                <createPluginBaseFileStructure>Create plugin base file structure</createPluginBaseFileStructure>
+                <setUpAutoloading>Set up autoloading (Composer)</setUpAutoloading>
+                <configureBuildProcess>Configure build process (Webpack)</configureBuildProcess>
+                <implementActivationDeactivationHooks>Implement activation/deactivation hooks</implementActivationDeactivationHooks>
+                <createBasicAdminMenuStructure>Create basic admin menu structure</createBasicAdminMenuStructure>
+            </pluginInfrastructure>
+            <databaseImplementation>
+                <createCustomGeoLocationTable>
+                    <sql>
+                        <![CDATA[
+                        CREATE TABLE `wp_psych_geo` (...)
+                        ]]>
+                    </sql>
+                </createCustomGeoLocationTable>
+                <setUpForeignKeyConstraints>Set up foreign key constraints</setUpForeignKeyConstraints>
+                <implementSpatialIndexes>Implement spatial indexes</implementSpatialIndexes>
+                <createDatabaseUpgradeMechanism>Create database upgrade mechanism</createDatabaseUpgradeMechanism>
+            </databaseImplementation>
+            <customPostTypeSetup>
+                <registerPsychotherapistPostType>Register psychotherapist post type</registerPsychotherapistPostType>
+                <configureMetaBoxIoIntegration>Configure MetaBox.io integration</configureMetaBoxIoIntegration>
+                <defineMetaFieldsStructure>Define meta fields structure</defineMetaFieldsStructure>
+                <implementFieldValidationRules>Implement field validation rules</implementFieldValidationRules>
+            </customPostTypeSetup>
+        </phase1>
+        <phase2>
+            <coreFeatures>
+                <geocodingIntegration>
+                    <implementOpenCageDataAPIClient>Implement OpenCage Data API client</implementOpenCageDataAPIClient>
+                    <setUpAPIKeyManagement>Set up API key management</setUpAPIKeyManagement>
+                    <createAddressValidationSystem>Create address validation system</createAddressValidationSystem>
+                    <implementGeocodingCache>Implement geocoding cache</implementGeocodingCache>
+                </geocodingIntegration>
+                <searchImplementation>
+                    <createRESTAPIEndpoints>Create REST API endpoints</createRESTAPIEndpoints>
+                    <implementSpatialSearchQueries>Implement spatial search queries</implementSpatialSearchQueries>
+                    <setUpResultsPagination>Set up results pagination</setUpResultsPagination>
+                    <addDistanceBasedSorting>Add distance-based sorting</addDistanceBasedSorting>
+                </searchImplementation>
+                <frontendComponents>
+                    <createBaseShortcodeStructure>Create base shortcode structure</createBaseShortcodeStructure>
+                    <implementSearchInterface>Implement search interface</implementSearchInterface>
+                    <buildResultsDisplaySystem>Build results display system</buildResultsDisplaySystem>
+                    <addFilterMechanisms>Add filter mechanisms</addFilterMechanisms>
+                </frontendComponents>
+            </coreFeatures>
+        </phase2>
+        <phase3>
+            <advancedFeatures>
+                <filteringSystem>
+                    <implementAJAXBasedAddressFiltering>Implement AJAX-based address filtering</implementAJAXBasedAddressFiltering>
+                    <createClientSideAttributeFiltering>Create client-side attribute filtering</createClientSideAttributeFiltering>
+                    <setUpFilterCombinations>Set up filter combinations</setUpFilterCombinations>
+                    <addRealTimeUpdates>Add real-time updates</addRealTimeUpdates>
+                </filteringSystem>
+                <userInterface>
+                    <implementResponsiveDesign>Implement responsive design</implementResponsiveDesign>
+                    <createCardAndTableViews>Create card and table views</createCardAndTableViews>
+                    <addProgressiveLoading>Add progressive loading</addProgressiveLoading>
+                    <implementContactDetailProtection>Implement contact detail protection</implementContactDetailProtection>
+                </userInterface>
+                <adminInterface>
+                    <buildSettingsPage>Build settings page</buildSettingsPage>
+                    <createExportFunctionality>Create export functionality</createExportFunctionality>
+                    <implementBulkOperations>Implement bulk operations</implementBulkOperations>
+                    <addAPIUsageMonitoring>Add API usage monitoring</addAPIUsageMonitoring>
+                </adminInterface>
+            </advancedFeatures>
+        </phase3>
+        <phase4>
+            <securityAndOptimization>
+                <securityImplementation>
+                    <addInputSanitization>Add input sanitization</addInputSanitization>
+                    <implementNonceVerification>Implement nonce verification</implementNonceVerification>
+                    <setUpCapabilityChecks>Set up capability checks</setUpCapabilityChecks>
+                    <configureRateLimiting>Configure rate limiting</configureRateLimiting>
+                </securityImplementation>
+                <performanceOptimization>
+                    <implementCachingStrategy>Implement caching strategy</implementCachingStrategy>
+                    <optimizeDatabaseQueries>Optimize database queries</optimizeDatabaseQueries>
+                    <addAssetOptimization>Add asset optimization</addAssetOptimization>
+                    <configureLazyLoading>Configure lazy loading</configureLazyLoading>
+                </performanceOptimization>
+                <errorHandling>
+                    <setUpErrorLogging>Set up error logging</setUpErrorLogging>
+                    <implementUserFeedback>Implement user feedback</implementUserFeedback>
+                    <addValidationMessages>Add validation messages</addValidationMessages>
+                    <createRecoveryMechanisms>Create recovery mechanisms</createRecoveryMechanisms>
+                </errorHandling>
+            </securityAndOptimization>
+        </phase4>
+        <phase5>
+            <testingAndDocumentation>
+                <testingSetup>
+                    <configurePHPUnitTests>Configure PHPUnit tests</configurePHPUnitTests>
+                    <setUpJestForJavaScript>Set up Jest for JavaScript</setUpJestForJavaScript>
+                    <implementCypressTests>Implement Cypress tests</implementCypressTests>
+                    <createTestDataSets>Create test data sets</createTestDataSets>
+                </testingSetup>
+                <documentation>
+                    <writeInlineDocumentation>Write inline documentation</writeInlineDocumentation>
+                    <createAPIDocumentation>Create API documentation</createAPIDocumentation>
+                    <writeUserGuides>Write user guides</writeUserGuides>
+                    <documentDeploymentProcess>Document deployment process</documentDeploymentProcess>
+                </documentation>
+            </testingAndDocumentation>
+        </phase5>
+        <phase6>
+            <deploymentPreparation>
+                <qualityAssurance>
+                    <runSecurityAudit>Run security audit</runSecurityAudit>
+                    <performPerformanceTesting>Perform performance testing</performPerformanceTesting>
+                    <checkWordpressCompatibility>Check WordPress compatibility</checkWordpressCompatibility>
+                    <validateGDPRCompliance>Validate GDPR compliance</validateGDPRCompliance>
+                </qualityAssurance>
+                <releasePreparation>
+                    <updateVersionNumbers>Update version numbers</updateVersionNumbers>
+                    <generateChangelog>Generate changelog</generateChangelog>
+                    <createReleaseNotes>Create release notes</createReleaseNotes>
+                    <prepareDeploymentPackage>Prepare deployment package</prepareDeploymentPackage>
+                </releasePreparation>
+            </deploymentPreparation>
+        </phase6>
+        <aiAgentTaskGuidelines>
+            <forEachTask>
+                <initialAnalysis>
+                    <reviewRelevantDocumentation>Review relevant documentation</reviewRelevantDocumentation>
+                    <understandDependencies>Understand dependencies</understandDependencies>
+                    <identifyPotentialIssues>Identify potential issues</identifyPotentialIssues>
+                    <planImplementationApproach>Plan implementation approach</planImplementationApproach>
+                </initialAnalysis>
+                <implementationProcess>
+                    <followProjectStandards>Follow project standards</followProjectStandards>
+                    <maintainDocumentation>Maintain documentation</maintainDocumentation>
+                    <addAppropriateTests>Add appropriate tests</addAppropriateTests>
+                    <considerPerformanceImpact>Consider performance impact</considerPerformanceImpact>
+                </implementationProcess>
+                <qualityControl>
+                    <verifyRequirements>Verify requirements</verifyRequirements>
+                    <runTestSuites>Run test suites</runTestSuites>
+                    <checkPerformance>Check performance</checkPerformance>
+                    <validateSecurity>Validate security</validateSecurity>
+                </qualityControl>
+                <documentation>
+                    <updateRelevantDocs>Update relevant docs</updateRelevantDocs>
+                    <addCodeComments>Add code comments</addCodeComments>
+                    <documentDecisions>Document decisions</documentDecisions>
+                    <noteAnyLimitations>Note any limitations</noteAnyLimitations>
+                </documentation>
+            </forEachTask>
+        </aiAgentTaskGuidelines>
+        <taskExecutionRules>
+            <beforeStarting>
+                <verifyPrerequisites>
+                    <environmentSetupComplete>Environment setup complete</environmentSetupComplete>
+                    <dependenciesAvailable>Dependencies available</dependenciesAvailable>
+                    <accessRightsConfirmed>Access rights confirmed</accessRightsConfirmed>
+                    <documentationReviewed>Documentation reviewed</documentationReviewed>
+                </verifyPrerequisites>
+            </beforeStarting>
+            <duringImplementation>
+                <codeQuality>
+                    <followCodingStandards>Follow coding standards</followCodingStandards>
+                    <addProperErrorHandling>Add proper error handling</addProperErrorHandling>
+                    <includeNecessaryTests>Include necessary tests</includeNecessaryTests>
+                    <optimizePerformance>Optimize performance</optimizePerformance>
+                </codeQuality>
+            </duringImplementation>
+            <afterCompletion>
+                <verification>
+                    <runAllTests>Run all tests</runAllTests>
+                    <checkDocumentation>Check documentation</checkDocumentation>
+                    <verifyPerformance>Verify performance</verifyPerformance>
+                    <validateSecurity>Validate security</validateSecurity>
+                </verification>
+            </afterCompletion>
+        </taskExecutionRules>
+        <progressTracking>
+            <statusIndicators>
+                <inProgress>🔄 In Progress</inProgress>
+                <completed>✅ Completed</completed>
+                <paused>⏸️ Paused</paused>
+                <blocked>⚠️ Blocked</blocked>
+            </statusIndicators>
+            <priorityLevels>
+                <critical>🔴 Critical</critical>
+                <high>🟡 High</high>
+                <normal>🟢 Normal</normal>
+                <low>⚪ Low</low>
+            </priorityLevels>
+        </progressTracking>
+        <dependenciesMap>
+            <externalServices>
+                <wordpressCore>WordPress Core (5.8+)</wordpressCore>
+                <metaBoxIo>MetaBox.io</metaBoxIo>
+                <openCageDataAPI>OpenCage Data API</openCageDataAPI>
+                <mediaHandlingPlugins>Media handling plugins</mediaHandlingPlugins>
+            </externalServices>
+            <internalComponents>
+                <customPostTypeToMetaFields>Custom post type → Meta fields</customPostTypeToMetaFields>
+                <geocodingToSearchFunctionality>Geocoding → Search functionality</geocodingToSearchFunctionality>
+                <frontendComponentsToFilterSystem>Frontend components → Filter system</frontendComponentsToFilterSystem>
+                <adminInterfaceToSettingsManagement>Admin interface → Settings management</adminInterfaceToSettingsManagement>
+            </internalComponents>
+        </dependenciesMap>
+        <successCriteria>
+            <forEachPhase>
+                <allTestsPassing>All tests passing</allTestsPassing>
+                <performanceRequirementsMet>Performance requirements met</performanceRequirementsMet>
+                <securityStandardsMaintained>Security standards maintained</securityStandardsMaintained>
+                <documentationComplete>Documentation complete</documentationComplete>
+            </forEachPhase>
+            <finalDeliverable>
+                <fullyFunctionalPlugin>Fully functional plugin</fullyFunctionalPlugin>
+                <completeDocumentation>Complete documentation</completeDocumentation>
+                <testCoverage>Test coverage >80%</testCoverage>
+                <noCriticalIssues>No critical issues</noCriticalIssues>
+            </finalDeliverable>
+        </successCriteria>
+        <notesForAIAgent>
+            <taskApproach>
+                <startWithCoreFunctionality>Start with core functionality</startWithCoreFunctionality>
+                <buildIncrementally>Build incrementally</buildIncrementally>
+                <testThoroughly>Test thoroughly</testThoroughly>
+                <documentConsistently>Document consistently</documentConsistently>
+            </taskApproach>
+            <qualityChecks>
+                <verifyAgainstRequirements>Verify against requirements</verifyAgainstRequirements>
+                <checkPerformanceMetrics>Check performance metrics</checkPerformanceMetrics>
+                <validateSecurityMeasures>Validate security measures</validateSecurityMeasures>
+                <ensureDocumentationCompleteness>Ensure documentation completeness</ensureDocumentationCompleteness>
+            </qualityChecks>
+            <errorHandling>
+                <logAllErrors>Log all errors</logAllErrors>
+                <provideClearFeedback>Provide clear feedback</provideClearFeedback>
+                <implementRecovery>Implement recovery</implementRecovery>
+                <documentEdgeCases>Document edge cases</documentEdgeCases>
+            </errorHandling>
+        </notesForAIAgent>
+    </tasks>
+</plugin_creation_prompt>

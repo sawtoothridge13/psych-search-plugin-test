@@ -1,0 +1,38 @@
+/* Frontend styles for WP Psych Search plugin */
+
+.psych-search-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.psych-search-results {
+  list-style: none;
+  padding: 0;
+}
+
+.psych-search-results li {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.psych-search-results li:last-child {
+  border-bottom: none;
+}
+
+.psych-search-title {
+  font-size: 1.2em;
+  margin-bottom: 5px;
+}
+
+.psych-search-link {
+  color: #0073aa;
+  text-decoration: none;
+}
+
+.psych-search-link:hover {
+  text-decoration: underline;
+}
